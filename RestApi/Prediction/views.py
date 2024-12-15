@@ -1,17 +1,17 @@
-from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
-   
-@api_view(['GET', 'POST'])
+
+@api_view(["GET", "POST"])
 def api_add(request):
     sum = 0
     response_dict = {}
-    if request.method == 'GET':
+    if request.method == "GET":
         # Do nothing
         pass
-    elif request.method == 'POST':
+    elif request.method == "POST":
         # Add the numbers
         data = request.data
         for key in data:

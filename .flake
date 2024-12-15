@@ -1,0 +1,12 @@
+[flake8]
+import-order-style=google
+inline-quotes=double
+
+ignore=DC100,DC104
+exclude=*/migrations/*,
+per-file-ignores=
+    manage.py:DC102,
+
+
+application_import_names=name
+multiline-quotes=double
