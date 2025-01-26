@@ -1,0 +1,23 @@
+[project]
+name = "decloud"
+version = "0.1.0"
+description = ""
+authors = []
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "django (>=5.1.5,<6.0.0)",
+    "python-dotenv (>=1.0.1,<2.0.0)",
+    "drf-yasg (>=1.21.8,<2.0.0)",
+    "djangorestframework (>=3.15.2,<4.0.0)"
+]
+
+[tool.poetry]
+package-mode = false
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^4.1.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

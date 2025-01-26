@@ -1,12 +1,15 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from drf_yasg.utils import swagger_auto_schema
+import uuid
+
 from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 from rest_framework import permissions
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 
 class UploadView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = []
 
     @swagger_auto_schema(
         tags=["API бэкенд"],
@@ -14,7 +17,7 @@ class UploadView(APIView):
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                'file': openapi.Schema(type=openapi.TYPE_FILE, description="Файл для загрузки"),
+                "file": openapi.Schema(type=openapi.TYPE_FILE, description="Файл для загрузки"),
             },
         ),
         responses={
@@ -23,16 +26,18 @@ class UploadView(APIView):
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
-                        'task_ids': openapi.Schema(
+                        "task_ids": openapi.Schema(
                             type=openapi.TYPE_ARRAY,
                             items=openapi.Schema(
                                 type=openapi.TYPE_OBJECT,
                                 properties={
-                                    'task_id': openapi.Schema(type=openapi.TYPE_STRING,
-                                                              example="123e4567-e89b-12d3-a456-426614174000"),
-                                    'presigned_url': openapi.Schema(type=openapi.TYPE_STRING,
-                                                                    example="https://s3.amazonaws.com/..."),
-                                    'expire-date': openapi.Schema(type=openapi.TYPE_STRING, example="2020-02-01"),
+                                    "task_id": openapi.Schema(
+                                        type=openapi.TYPE_STRING, example="123e4567-e89b-12d3-a456-426614174000"
+                                    ),
+                                    "presigned_url": openapi.Schema(
+                                        type=openapi.TYPE_STRING, example="https://s3.amazonaws.com/..."
+                                    ),
+                                    "expire-date": openapi.Schema(type=openapi.TYPE_STRING, example="2020-02-01"),
                                 },
                             ),
                         ),
@@ -42,8 +47,8 @@ class UploadView(APIView):
             400: openapi.Response(description="Ошибка в запросе"),
         },
     )
-    def post(self, request, format=None):
-        return Response({'response': "hello"})
+    def post(self, _: Request) -> Response:
+        return Response({"response": "hello"})
 
 
 class StatusView(APIView):
@@ -58,18 +63,19 @@ class StatusView(APIView):
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
-                        'task_id': openapi.Schema(type=openapi.TYPE_STRING,
-                                                  example="123e4567-e89b-12d3-a456-426614174000"),
-                        'filename': openapi.Schema(type=openapi.TYPE_STRING, example="photo.jpg"),
-                        'status': openapi.Schema(type=openapi.TYPE_STRING, example="pending"),
+                        "task_id": openapi.Schema(
+                            type=openapi.TYPE_STRING, example="123e4567-e89b-12d3-a456-426614174000"
+                        ),
+                        "filename": openapi.Schema(type=openapi.TYPE_STRING, example="photo.jpg"),
+                        "status": openapi.Schema(type=openapi.TYPE_STRING, example="pending"),
                     },
                 ),
             ),
             404: openapi.Response(description="Задача не найдена"),
         },
     )
-    def get(self, request, task_id, format=None):
-        return Response({"response": "hello"})
+    def get(self, _: Request, task_id: uuid.UUID) -> Response:
+        return Response({"response": task_id})
 
 
 class PresignedUrlView(APIView):
@@ -84,17 +90,17 @@ class PresignedUrlView(APIView):
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
-                        'presigned_url': openapi.Schema(type=openapi.TYPE_STRING,
-                                                        example="https://s3/..."),
-                        'task_id': openapi.Schema(type=openapi.TYPE_STRING,
-                                                  example="123e4567-e89b-12d3-a456-426614174000"),
+                        "presigned_url": openapi.Schema(type=openapi.TYPE_STRING, example="https://s3/..."),
+                        "task_id": openapi.Schema(
+                            type=openapi.TYPE_STRING, example="123e4567-e89b-12d3-a456-426614174000"
+                        ),
                     },
                 ),
             ),
             400: openapi.Response(description="Ошибка в запросе"),
         },
     )
-    def post(self, request, format=None):
+    def post(self, _: Request) -> Response:
         return Response({"response": "hello"})
 
 
@@ -133,5 +139,5 @@ class GetImageView(APIView):
         },
         tags=["API бэкенд"],
     )
-    def get(self, request, task_id, format=None):
-        return Response({"response": "hello"})
+    def get(self, _: Request, task_id: uuid.UUID) -> Response:
+        return Response({"response": task_id})

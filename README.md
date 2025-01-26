@@ -27,7 +27,7 @@
 2. Установите зависимости для бэкенда:
     ```bash
     cd backend
-    pip install -r requirements.txt
+    make setup
     ```
 3. Установите зависимости для фронтенда:
     ```bash
