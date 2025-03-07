@@ -1,11 +1,15 @@
 import uuid
-
+import os
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
-from rest_framework import permissions
+from rest_framework import permissions, status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.conf import settings
+
+from models import File
+from serializers import FileSerializer
 
 
 class UploadView(APIView):
@@ -47,8 +51,42 @@ class UploadView(APIView):
             400: openapi.Response(description="Ошибка в запросе"),
         },
     )
-    def post(self, _: Request) -> Response:
-        return Response({"response": "hello"})
+
+    def post(self, request) -> Response:
+        if "file" not in request.FILES:
+            return Response({"error": "There is no file in request"}, status=status.HTTP_400_BAD_REQUEST)
+
+        uploaded_file = request.FILES["file"]
+
+        file_name = f"{uuid.uuid4()}_{uploaded_file.name}"
+        file_path = os.path.join(settings.MEDIA_ROOT, "uploads", file_name)
+
+        with open(file_path, "wb+") as destination:
+            for chunk in uploaded_file.chunks():
+                destination.write(chunk)
+
+        
+        file_instance = File(
+            id=uuid.uuid4(),
+            user_id=uuid.uuid4(), 
+            status="queued",
+            s3_link=f"/media/uploads/{file_name}", #atm files will be in the folder, according to the plan
+        )
+        file_instance.save()
+
+        serializer = FileSerializer(file_instance)
+
+        return Response(
+            {
+                "task_ids": [    #just an example
+                    {
+                        "task_id": str(file_instance.id),
+                        "presigned_url": f"http://localhost:8000{file_instance.s3_link}", # :D
+                    }
+                ]
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class StatusView(APIView):
@@ -74,8 +112,19 @@ class StatusView(APIView):
             404: openapi.Response(description="Задача не найдена"),
         },
     )
-    def get(self, _: Request, task_id: uuid.UUID) -> Response:
-        return Response({"response": task_id})
+
+    def get(self, request: Request, task_id: uuid.UUID) -> Response:
+        try:
+            file_instance = File.objects.get(id=task_id)
+        except File.DoesNotExist:
+            return Response(
+                {"error": "The task wasn't found!"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = FileSerializer(file_instance)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 
 class PresignedUrlView(APIView):
@@ -139,5 +188,20 @@ class GetImageView(APIView):
         },
         tags=["API бэкенд"],
     )
-    def get(self, _: Request, task_id: uuid.UUID) -> Response:
-        return Response({"response": task_id})
+
+    def get(self, request: Request, task_id: uuid.UUID) -> Response:
+        #try:    #This isa possible logic for get-url function
+        #    file_instance = File.objects.get(id=task_id)
+        #except File.DoesNotExist:
+        #    return Response(
+        #        {"error": "The task wasn't found!"}, status=status.HTTP_404_NOT_FOUND
+        #    )
+        #serializer = FileSerializer(file_instance)
+        #if serializer.data["status"] != 'ready':
+        #    return Response({"not ready yet": "The task is not ready yet!"}, status=status.HTTP_200_OK)
+        #return Response(serializer.data["s3_link"], status=status.HTTP_200_OK)
+
+        return Response({"answer": 
+                         "https://elements-resized.envatousercontent.com/elements-video-cover-images/files/e6161b21-521b-4968-a41e-1274b484c6cd/inline_image_preview.jpg?w=500&cf_fit=cover&q=85&format=auto&s=926245cddbce52e66bb1e714a69d291b23fab9ec19424fba7486f084f5781332"},
+                           status=status.HTTP_200_OK) #mock function
+
