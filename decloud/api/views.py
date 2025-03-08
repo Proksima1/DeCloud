@@ -1,5 +1,7 @@
 import uuid
 import os
+import boto3
+from datetime import datetime, timedelta
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import permissions, status
@@ -8,12 +10,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.conf import settings
 
-from models import File
-from serializers import FileSerializer
+from api.models import File 
+from api.serializers import FileSerializer                          
 
 
 class UploadView(APIView):
-    permission_classes = []
+    permission_classes = [permissions.IsAuthenticated]  
 
     @swagger_auto_schema(
         tags=["API бэкенд"],
@@ -51,37 +53,46 @@ class UploadView(APIView):
             400: openapi.Response(description="Ошибка в запросе"),
         },
     )
-
     def post(self, request) -> Response:
         if "file" not in request.FILES:
-            return Response({"error": "There is no file in request"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Файл не найден в запросе"}, status=status.HTTP_400_BAD_REQUEST)
 
         uploaded_file = request.FILES["file"]
 
+
         file_name = f"{uuid.uuid4()}_{uploaded_file.name}"
-        file_path = os.path.join(settings.MEDIA_ROOT, "uploads", file_name)
-
-        with open(file_path, "wb+") as destination:
-            for chunk in uploaded_file.chunks():
-                destination.write(chunk)
-
         
+
         file_instance = File(
             id=uuid.uuid4(),
-            user_id=uuid.uuid4(), 
+            user=request.user,  
             status="queued",
-            s3_link=f"/media/uploads/{file_name}", #atm files will be in the folder, according to the plan
+            s3_link=f"{settings.AWS_S3_CUSTOM_DOMAIN}/{file_name}",  
         )
         file_instance.save()
 
-        serializer = FileSerializer(file_instance)
+
+        s3 = boto3.client(
+            's3',
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        )
+        presigned_url = s3.generate_presigned_url(
+            'put_object',
+            Params={
+                'Bucket': settings.AWS_STORAGE_BUCKET_NAME,
+                'Key': file_name,
+            },
+            ExpiresIn=3600,
+        )
 
         return Response(
             {
-                "task_ids": [    #just an example
+                "task_ids": [
                     {
                         "task_id": str(file_instance.id),
-                        "presigned_url": f"http://localhost:8000{file_instance.s3_link}", # :D
+                        "presigned_url": presigned_url,  # Реальный URL
+                        "expire-date": (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%d"),
                     }
                 ]
             },
@@ -112,23 +123,21 @@ class StatusView(APIView):
             404: openapi.Response(description="Задача не найдена"),
         },
     )
-
     def get(self, request: Request, task_id: uuid.UUID) -> Response:
         try:
-            file_instance = File.objects.get(id=task_id)
+            # Фильтр по пользователю
+            file_instance = File.objects.get(id=task_id, user=request.user)
         except File.DoesNotExist:
             return Response(
-                {"error": "The task wasn't found!"}, status=status.HTTP_404_NOT_FOUND
+                {"error": "Задача не найдена!"}, status=status.HTTP_404_NOT_FOUND
             )
 
         serializer = FileSerializer(file_instance)
-
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-
 class PresignedUrlView(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]  
 
     @swagger_auto_schema(
         tags=["API бэкенд"],
@@ -149,11 +158,40 @@ class PresignedUrlView(APIView):
             400: openapi.Response(description="Ошибка в запросе"),
         },
     )
-    def post(self, _: Request) -> Response:
-        return Response({"response": "hello"})
+    def post(self, request: Request) -> Response:
+        # Генерация task_id и URL
+        task_id = uuid.uuid4()
+        s3 = boto3.client(
+            's3',
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        )
+        presigned_url = s3.generate_presigned_url(
+            'put_object',
+            Params={
+                'Bucket': settings.AWS_STORAGE_BUCKET_NAME,
+                'Key': f"uploads/{task_id}",
+            },
+            ExpiresIn=3600,
+        )
+
+        # Создание записи в базе
+        File.objects.create(
+            id=task_id,
+            user=request.user,
+            status="queued",
+            s3_link=f"{settings.AWS_S3_CUSTOM_DOMAIN}/uploads/{task_id}",
+        )
+
+        return Response(
+            {"presigned_url": presigned_url, "task_id": str(task_id)},
+            status=status.HTTP_200_OK,
+        )
 
 
 class GetImageView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
     @swagger_auto_schema(
         operation_description="Получить обработанное изображение по task_id",
         manual_parameters=[
@@ -188,20 +226,18 @@ class GetImageView(APIView):
         },
         tags=["API бэкенд"],
     )
-
     def get(self, request: Request, task_id: uuid.UUID) -> Response:
-        #try:    #This isa possible logic for get-url function
-        #    file_instance = File.objects.get(id=task_id)
-        #except File.DoesNotExist:
-        #    return Response(
-        #        {"error": "The task wasn't found!"}, status=status.HTTP_404_NOT_FOUND
-        #    )
-        #serializer = FileSerializer(file_instance)
-        #if serializer.data["status"] != 'ready':
-        #    return Response({"not ready yet": "The task is not ready yet!"}, status=status.HTTP_200_OK)
-        #return Response(serializer.data["s3_link"], status=status.HTTP_200_OK)
+        try:
+            file_instance = File.objects.get(id=task_id, user=request.user)
+        except File.DoesNotExist:
+            return Response(
+                {"error": "Задача не найдена!"}, status=status.HTTP_404_NOT_FOUND
+            )
 
-        return Response({"answer": 
-                         "https://elements-resized.envatousercontent.com/elements-video-cover-images/files/e6161b21-521b-4968-a41e-1274b484c6cd/inline_image_preview.jpg?w=500&cf_fit=cover&q=85&format=auto&s=926245cddbce52e66bb1e714a69d291b23fab9ec19424fba7486f084f5781332"},
-                           status=status.HTTP_200_OK) #mock function
+        if file_instance.status != "ready":
+            return Response(
+                {"status": "Файл еще не готов"}, status=status.HTTP_200_OK
+            )
 
+
+        return Response({"url": file_instance.s3_link}, status=status.HTTP_200_OK)
