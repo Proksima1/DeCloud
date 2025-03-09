@@ -1,21 +1,21 @@
 import uuid
-import os
-import boto3
 from datetime import datetime, timedelta
+
+import boto3
+from django.conf import settings
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import permissions, status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.conf import settings
 
-from api.models import File 
-from api.serializers import FileSerializer                          
+from api.models import File
+from api.serializers import FileSerializer
 
 
 class UploadView(APIView):
-    permission_classes = [permissions.IsAuthenticated]  
+    permission_classes = [permissions.IsAuthenticated]
 
     @swagger_auto_schema(
         tags=["API бэкенд"],
@@ -59,29 +59,26 @@ class UploadView(APIView):
 
         uploaded_file = request.FILES["file"]
 
-
         file_name = f"{uuid.uuid4()}_{uploaded_file.name}"
-        
 
         file_instance = File(
             id=uuid.uuid4(),
-            user=request.user,  
+            user=request.user,
             status="queued",
-            s3_link=f"{settings.AWS_S3_CUSTOM_DOMAIN}/{file_name}",  
+            s3_link=f"{settings.AWS_S3_CUSTOM_DOMAIN}/{file_name}",
         )
         file_instance.save()
 
-
         s3 = boto3.client(
-            's3',
+            "s3",
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
         )
         presigned_url = s3.generate_presigned_url(
-            'put_object',
+            "put_object",
             Params={
-                'Bucket': settings.AWS_STORAGE_BUCKET_NAME,
-                'Key': file_name,
+                "Bucket": settings.AWS_STORAGE_BUCKET_NAME,
+                "Key": file_name,
             },
             ExpiresIn=3600,
         )
@@ -128,16 +125,14 @@ class StatusView(APIView):
             # Фильтр по пользователю
             file_instance = File.objects.get(id=task_id, user=request.user)
         except File.DoesNotExist:
-            return Response(
-                {"error": "Задача не найдена!"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Задача не найдена!"}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = FileSerializer(file_instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class PresignedUrlView(APIView):
-    permission_classes = [permissions.IsAuthenticated]  
+    permission_classes = [permissions.IsAuthenticated]
 
     @swagger_auto_schema(
         tags=["API бэкенд"],
@@ -162,15 +157,15 @@ class PresignedUrlView(APIView):
         # Генерация task_id и URL
         task_id = uuid.uuid4()
         s3 = boto3.client(
-            's3',
+            "s3",
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
         )
         presigned_url = s3.generate_presigned_url(
-            'put_object',
+            "put_object",
             Params={
-                'Bucket': settings.AWS_STORAGE_BUCKET_NAME,
-                'Key': f"uploads/{task_id}",
+                "Bucket": settings.AWS_STORAGE_BUCKET_NAME,
+                "Key": f"uploads/{task_id}",
             },
             ExpiresIn=3600,
         )
@@ -230,14 +225,9 @@ class GetImageView(APIView):
         try:
             file_instance = File.objects.get(id=task_id, user=request.user)
         except File.DoesNotExist:
-            return Response(
-                {"error": "Задача не найдена!"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Задача не найдена!"}, status=status.HTTP_404_NOT_FOUND)
 
         if file_instance.status != "ready":
-            return Response(
-                {"status": "Файл еще не готов"}, status=status.HTTP_200_OK
-            )
-
+            return Response({"status": "Файл еще не готов"}, status=status.HTTP_200_OK)
 
         return Response({"url": file_instance.s3_link}, status=status.HTTP_200_OK)
