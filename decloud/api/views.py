@@ -15,7 +15,7 @@ from api.serializers import FileSerializer
 
 
 class UploadView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = []
 
     @swagger_auto_schema(
         tags=["API бэкенд"],
@@ -55,7 +55,7 @@ class UploadView(APIView):
     )
     def post(self, request) -> Response:
         if "file" not in request.FILES:
-            return Response({"error": "Файл не найден в запросе"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "There is no file in request"}, status=status.HTTP_400_BAD_REQUEST)
 
         uploaded_file = request.FILES["file"]
 
@@ -122,17 +122,17 @@ class StatusView(APIView):
     )
     def get(self, request: Request, task_id: uuid.UUID) -> Response:
         try:
-            # Фильтр по пользователю
-            file_instance = File.objects.get(id=task_id, user=request.user)
+            file_instance = File.objects.get(id=task_id)
         except File.DoesNotExist:
-            return Response({"error": "Задача не найдена!"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "The task wasn't found!"}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = FileSerializer(file_instance)
+
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class PresignedUrlView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     @swagger_auto_schema(
         tags=["API бэкенд"],
@@ -185,8 +185,6 @@ class PresignedUrlView(APIView):
 
 
 class GetImageView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
     @swagger_auto_schema(
         operation_description="Получить обработанное изображение по task_id",
         manual_parameters=[
