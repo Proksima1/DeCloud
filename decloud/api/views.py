@@ -6,6 +6,7 @@ from rest_framework import permissions
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
 
 
 class UploadView(APIView):
@@ -141,3 +142,10 @@ class GetImageView(APIView):
     )
     def get(self, _: Request, task_id: uuid.UUID) -> Response:
         return Response({"response": task_id})
+
+
+class ProtectedView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response({"message": "Это защищённый эндпоинт!"})
