@@ -1,4 +1,6 @@
 import uuid
+import os
+import requests
 from datetime import datetime, timedelta
 
 import boto3
@@ -9,9 +11,21 @@ from rest_framework import permissions, status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+
 
 from api.models import File
 from api.serializers import FileSerializer
+
+
+# Функция создания S3 клиента для Yandex Cloud
+def get_s3_client():
+    return boto3.client(
+        "s3",
+        aws_access_key_id=os.getenv("YC_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.getenv("YC_SECRET_ACCESS_KEY"),
+        endpoint_url=os.getenv("YC_ENDPOINT_URL"),
+    )
 
 
 class UploadView(APIView):
@@ -19,7 +33,7 @@ class UploadView(APIView):
 
     @swagger_auto_schema(
         tags=["API бэкенд"],
-        operation_description="Загрузка файлов и генерация Pre-Signed URL для загрузки в S3.",
+        operation_description="Загрузка файлов и генерация Pre-Signed URL для загрузки в Yandex S3.",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
@@ -41,7 +55,7 @@ class UploadView(APIView):
                                         type=openapi.TYPE_STRING, example="123e4567-e89b-12d3-a456-426614174000"
                                     ),
                                     "presigned_url": openapi.Schema(
-                                        type=openapi.TYPE_STRING, example="https://s3.amazonaws.com/..."
+                                        type=openapi.TYPE_STRING, example="https://storage.yandexcloud.net/..."
                                     ),
                                     "expire-date": openapi.Schema(type=openapi.TYPE_STRING, example="2020-02-01"),
                                 },
@@ -58,26 +72,22 @@ class UploadView(APIView):
             return Response({"error": "There is no file in request"}, status=status.HTTP_400_BAD_REQUEST)
 
         uploaded_file = request.FILES["file"]
-
         file_name = f"{uuid.uuid4()}_{uploaded_file.name}"
+        bucket_name = os.getenv("YC_STORAGE_BUCKET_NAME")
 
         file_instance = File(
             id=uuid.uuid4(),
             user=request.user,
             status="queued",
-            s3_link=f"{settings.AWS_S3_CUSTOM_DOMAIN}/{file_name}",
+            s3_link=f"https://storage.yandexcloud.net/{bucket_name}/{file_name}",
         )
         file_instance.save()
 
-        s3 = boto3.client(
-            "s3",
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-        )
+        s3 = get_s3_client()
         presigned_url = s3.generate_presigned_url(
             "put_object",
             Params={
-                "Bucket": settings.AWS_STORAGE_BUCKET_NAME,
+                "Bucket": bucket_name,
                 "Key": file_name,
             },
             ExpiresIn=3600,
@@ -88,7 +98,7 @@ class UploadView(APIView):
                 "task_ids": [
                     {
                         "task_id": str(file_instance.id),
-                        "presigned_url": presigned_url,  # Реальный URL
+                        "presigned_url": presigned_url,
                         "expire-date": (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%d"),
                     }
                 ]
@@ -132,18 +142,18 @@ class StatusView(APIView):
 
 
 class PresignedUrlView(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
         tags=["API бэкенд"],
-        operation_description="Генерация Pre-Signed URL для загрузки файла в S3.",
+        operation_description="Генерация Pre-Signed URL для загрузки файла в Yandex S3.",
         responses={
             200: openapi.Response(
                 description="Pre-Signed URL и task_id для загрузки файла",
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
-                        "presigned_url": openapi.Schema(type=openapi.TYPE_STRING, example="https://s3/..."),
+                        "presigned_url": openapi.Schema(type=openapi.TYPE_STRING, example="https://storage.yandexcloud.net/..."),
                         "task_id": openapi.Schema(
                             type=openapi.TYPE_STRING, example="123e4567-e89b-12d3-a456-426614174000"
                         ),
@@ -153,35 +163,34 @@ class PresignedUrlView(APIView):
             400: openapi.Response(description="Ошибка в запросе"),
         },
     )
-    def post(self, request: Request) -> Response:
-        # Генерация task_id и URL
+    def get(self, request):
         task_id = uuid.uuid4()
-        s3 = boto3.client(
-            "s3",
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-        )
-        presigned_url = s3.generate_presigned_url(
-            "put_object",
-            Params={
-                "Bucket": settings.AWS_STORAGE_BUCKET_NAME,
-                "Key": f"uploads/{task_id}",
-            },
-            ExpiresIn=3600,
-        )
+        bucket_name = os.getenv("YC_STORAGE_BUCKET_NAME")
+        cloud_function_url = os.getenv("GENERATE_PESIGNED_URL")
+        payload = {
+            "bucket_name": bucket_name,
+            "task_id": str(task_id),
+        }
+        response = requests.get(cloud_function_url, json=payload)
+        if response.status_code == 200:
+            data = response.json()
+            presigned_url = data["presigned_url"]
+            File.objects.create(
+                id=task_id,
+                user=request.user,
+                status="queued",
+                s3_link=f"https://storage.yandexcloud.net/{bucket_name}/uploads/{task_id}",
+            )
 
-        # Создание записи в базе
-        File.objects.create(
-            id=task_id,
-            user=request.user,
-            status="queued",
-            s3_link=f"{settings.AWS_S3_CUSTOM_DOMAIN}/uploads/{task_id}",
-        )
-
-        return Response(
-            {"presigned_url": presigned_url, "task_id": str(task_id)},
-            status=status.HTTP_200_OK,
-        )
+            return Response(
+                {"presigned_url": presigned_url, "task_id": str(task_id)},
+                status=status.HTTP_200_OK,
+            )
+        else:
+            return Response(
+                {"error": "Ошибка при генерации Pre-Signed URL"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 class GetImageView(APIView):

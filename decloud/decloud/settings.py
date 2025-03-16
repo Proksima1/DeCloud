@@ -4,6 +4,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv(".env")
+
+YC_ACCESS_KEY_ID = os.getenv("YC_ACCESS_KEY_ID")
+YC_SECRET_ACCESS_KEY = os.getenv("YC_SECRET_ACCESS_KEY")
+YC_STORAGE_BUCKET_NAME = os.getenv("YC_STORAGE_BUCKET_NAME")
+YC_ENDPOINT_URL = os.getenv("YC_ENDPOINT_URL", "https://storage.yandexcloud.net")
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_TOKEN", "not_secret")
@@ -27,6 +33,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "drf_yasg",
+    "api",
 ]
 
 MIDDLEWARE = [
