@@ -1,0 +1,12 @@
+[tool.black]
+line-length = 79
+target-version = ['py313']
+
+[tool.isort]
+py_version = "all"
+profile = "google"
+known_first_party = ["name"]
+
+[tool.flake8]
+max-line-length = 79
+exclude = ["__pycache__", "venv"]
