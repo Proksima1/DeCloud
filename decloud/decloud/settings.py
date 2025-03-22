@@ -67,9 +67,13 @@ TEMPLATES = [
 WSGI_APPLICATION = "decloud.wsgi.application"
 
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": os.path.join(BASE_DIR, "db.sqlite3"),
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv("NAME_PG"),
+        'USER': 'decloud_user',
+        'PASSWORD_PG': os.getenv("PASSWORD_PG"),
+        'HOST': 'localhost',
+        'PORT': os.getenv("PORT_PG"),
     }
 }
 

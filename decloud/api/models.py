@@ -11,7 +11,13 @@ class File(models.Model):
         READY = "ready", "Ready"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="files")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name="files", 
+        null=True, 
+        blank=True
+    )
     status = models.CharField(max_length=20, choices=FileProcessing.choices, default=FileProcessing.QUEUED)
     s3_link = models.URLField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
