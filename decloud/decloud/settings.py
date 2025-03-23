@@ -5,12 +5,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
-class Envs(str, Enum):
+class EnvKeys(str, Enum):
     DJANGO_SECRET: str = "DJANGO_SECRET"  # noqa: S105
     DJANGO_DEBUG: str = "DJANGO_DEBUG"
     YC_ACCESS_KEY_ID: str = "YC_ACCESS_KEY_ID"
-    YC_SECRET_ACCESS_KEY: str = "YC_SECRET_ACCESS"  # noqa: S105
+    YC_SECRET_ACCESS_KEY: str = "YC_SECRET_ACCESS_KEY"  # noqa: S105
     YC_STORAGE_BUCKET_NAME: str = "YC_STORAGE_BUCKET_NAME"
+    YC_GENERATE_PRESIGNED_URL: str = "YC_GENERATE_PRESIGNED_URL"
     YC_ENDPOINT_URL: str = "YC_ENDPOINT_URL"
     POSTGRES_DB_NAME: str = "POSTGRES_DB_NAME"
     POSTGRES_DB_USER: str = "POSTGRES_DB_USER"
@@ -21,16 +22,17 @@ class Envs(str, Enum):
 
 load_dotenv(".env")
 
-YC_ACCESS_KEY_ID = os.getenv(Envs.YC_ACCESS_KEY_ID.value)
-YC_SECRET_ACCESS_KEY = os.getenv(Envs.YC_SECRET_ACCESS_KEY.value)
-YC_STORAGE_BUCKET_NAME = os.getenv(Envs.YC_STORAGE_BUCKET_NAME.value)
-YC_ENDPOINT_URL = os.getenv(Envs.YC_ENDPOINT_URL.value, "https://storage.yandexcloud.net")
+YC_ACCESS_KEY_ID = os.getenv(EnvKeys.YC_ACCESS_KEY_ID.value)
+YC_SECRET_ACCESS_KEY = os.getenv(EnvKeys.YC_SECRET_ACCESS_KEY.value)
+YC_STORAGE_BUCKET_NAME = os.getenv(EnvKeys.YC_STORAGE_BUCKET_NAME.value)
+YC_ENDPOINT_URL = os.getenv(EnvKeys.YC_ENDPOINT_URL.value, "https://storage.yandexcloud.net")
+YC_GENERATE_PRESIGNED_URL = os.getenv(EnvKeys.YC_GENERATE_PRESIGNED_URL.value)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get(Envs.DJANGO_SECRET.value, "not_secret")
+SECRET_KEY = os.environ.get(EnvKeys.DJANGO_SECRET.value, "not_secret")
 
-DEBUG = bool(int(os.environ.get(Envs.DJANGO_DEBUG.value, "1")))
+DEBUG = bool(int(os.environ.get(EnvKeys.DJANGO_DEBUG.value, "1")))
 
 ALLOWED_HOSTS = ["*"]
 
@@ -49,7 +51,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "corsheaders",
-    "drf_yasg",
+    "drf_spectacular",
+    "core",
     "api",
 ]
 
@@ -86,13 +89,13 @@ TEMPLATES = [
 WSGI_APPLICATION = "decloud.wsgi.application"
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv("NAME_PG"),
-        'USER': 'decloud_user',
-        'PASSWORD_PG': os.getenv("PASSWORD_PG"),
-        'HOST': 'localhost',
-        'PORT': os.getenv("PORT_PG"),
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv(EnvKeys.POSTGRES_DB_NAME.value, "decloud"),
+        "USER": os.getenv(EnvKeys.POSTGRES_DB_USER.value, "postgres"),
+        "PASSWORD": os.getenv(EnvKeys.POSTGRES_DB_PASSWORD.value, "postgres"),
+        "HOST": os.getenv(EnvKeys.POSTGRES_DB_HOST.value, "localhost"),
+        "PORT": os.getenv(EnvKeys.POSTGRES_DB_PORT.value, "5432"),
     }
 }
 
@@ -111,6 +114,17 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "DeCloud",
+    "DESCRIPTION": "Документация API DeCloud",
+    "VERSION": "v0.0.1",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
+
 LANGUAGE_CODE = "ru-RU"
 
 TIME_ZONE = "UTC"
@@ -124,3 +138,5 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CORS_ALLOW_ALL_ORIGINS = DEBUG
+
+AUTH_USER_MODEL = "core.User"

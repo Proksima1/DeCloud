@@ -1,14 +1,29 @@
+from core.serializers import BaseSerializer
 from rest_framework import serializers
 
-from .models import File
+from api.models import File
 
 
-class FileSerializer(serializers.ModelSerializer):
+class StatusResponseSerializer(serializers.ModelSerializer):
     class Meta:
         model = File
-        fields = ["id", "user_id", "status", "s3_link"]
+        fields = ["id", "status"]
 
-    def validate_status(self, value):
-        instance = self.instance
-        # some needed actions here
-        return value
+
+class UploadRequestSerializer(BaseSerializer):
+    file = serializers.FileField(allow_empty_file=False)
+
+
+class UploadResponseSerializer(BaseSerializer):
+    task_id = serializers.UUIDField()
+
+
+class GetImageResponseSerializer(BaseSerializer):
+    url = serializers.URLField()
+    status = serializers.ChoiceField(choices=[(status.value, status.name) for status in File.FileProcessing])
+
+
+class GetPresignedUrlResponseSerializer(BaseSerializer):
+    url = serializers.URLField()
+    task_id = serializers.UUIDField()
+    expires_date = serializers.DateTimeField()
