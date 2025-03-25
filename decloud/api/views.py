@@ -100,6 +100,7 @@ class PresignedUrlView(APIView):
                 )
 
             presigned_url = data["presigned_url"]
+            expires_in = data.get("expires_in", 3600)
             File.objects.create(
                 id=task_id,
                 user=request.user if request.user.is_authenticated else None,
@@ -107,7 +108,7 @@ class PresignedUrlView(APIView):
                 s3_link=f"https://storage.yandexcloud.net/{settings.YC_STORAGE_BUCKET_NAME}/uploads/{task_id}",
             )
             serializer = GetPresignedUrlResponseSerializer.create_and_validate(
-                url=presigned_url, task_id=task_id, expires_date=datetime.now() + timedelta(hours=1)
+                url=presigned_url, task_id=task_id, expires_date=datetime.now() + timedelta(seconds=expires_in), expires_in=expires_in
             )  # TODO: переделать на возврат даты из запроса
             return Response(
                 serializer.validated_data,
