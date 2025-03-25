@@ -1,6 +1,7 @@
 import boto3
 import json
 import os
+from datetime import datetime, timedelta
 
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
@@ -17,12 +18,11 @@ def handler(event, context):
                 "statusCode": 400,
                 "body": json.dumps({"error": "Invalid JSON format in body", "event": event})
             }
-
     print("Parsed event:", event)
 
     bucket_name = event.get("bucket_name")
     task_id = event.get("task_id")
-    expires_in = event.get("expires_in", 3600)  # По умолчанию 3600 секунд (1 час)
+    expires_in = event.get("expires_in", 3600)
 
     # Проверка
     if not bucket_name or not task_id:
@@ -44,7 +44,6 @@ def handler(event, context):
             "statusCode": 500,
             "body": json.dumps({"error": f"Ошибка при создании S3 клиента: {str(e)}"})
         }
-
     file_key = f"testka/uploads/{task_id}"
 
     try:
@@ -59,12 +58,16 @@ def handler(event, context):
             HttpMethod="PUT"
         )
 
+        expiration_time = datetime.utcnow() + timedelta(seconds=expires_in)
+        expiration_time_iso = expiration_time.isoformat() + "Z" 
+
         return {
             "statusCode": 200,
             "body": json.dumps({
                 "presigned_url": presigned_url,
                 "task_id": task_id,
-                "expires_in": expires_in
+                "expires_in": expires_in,
+                "expiration_time": expiration_time_iso
             })
         }
     except Exception as e:
