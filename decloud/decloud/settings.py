@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "core",
     "api",
+    "api.mock",
 ]
 
 MIDDLEWARE = [
