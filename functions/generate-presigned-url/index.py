@@ -66,7 +66,6 @@ def handler(event, context):
             "body": json.dumps({
                 "presigned_url": presigned_url,
                 "task_id": task_id,
-                "expires_in": expires_in,
                 "expiration_time": expiration_time_iso
             })
         }
