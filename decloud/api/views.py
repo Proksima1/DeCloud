@@ -1,143 +1,136 @@
 import uuid
 
-from drf_yasg import openapi
-from drf_yasg.utils import swagger_auto_schema
-from rest_framework import permissions
+import requests
+from core.serializers import ErrorCode, ErrorResponseSerializer
+from django.conf import settings
+from drf_spectacular.utils import extend_schema
+from rest_framework import status
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from api.models import File
+from api.serializers import (
+    GetImageResponseSerializer,
+    GetPresignedUrlResponseSerializer,
+    StatusResponseSerializer,
+    UploadRequestSerializer,
+    UploadResponseSerializer,
+)
+
 
 class UploadView(APIView):
     permission_classes = []
+    parser_classes = [MultiPartParser, FormParser]
 
-    @swagger_auto_schema(
-        tags=["API бэкенд"],
-        operation_description="Загрузка файлов и генерация Pre-Signed URL для загрузки в S3.",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                "file": openapi.Schema(type=openapi.TYPE_FILE, description="Файл для загрузки"),
-            },
-        ),
-        responses={
-            201: openapi.Response(
-                description="Pre-Signed URL и task_id для загрузки файла",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "task_ids": openapi.Schema(
-                            type=openapi.TYPE_ARRAY,
-                            items=openapi.Schema(
-                                type=openapi.TYPE_OBJECT,
-                                properties={
-                                    "task_id": openapi.Schema(
-                                        type=openapi.TYPE_STRING, example="123e4567-e89b-12d3-a456-426614174000"
-                                    ),
-                                    "presigned_url": openapi.Schema(
-                                        type=openapi.TYPE_STRING, example="https://s3.amazonaws.com/..."
-                                    ),
-                                    "expire-date": openapi.Schema(type=openapi.TYPE_STRING, example="2020-02-01"),
-                                },
-                            ),
-                        ),
-                    },
-                ),
-            ),
-            400: openapi.Response(description="Ошибка в запросе"),
-        },
+    @extend_schema(
+        request=UploadRequestSerializer,
+        responses={201: UploadResponseSerializer, 400: ErrorResponseSerializer},
+        tags=["Prod"],
     )
-    def post(self, _: Request) -> Response:
-        return Response({"response": "hello"})
+    def post(self, request: Request) -> Response:
+        if "file" not in request.FILES:
+            serializer = ErrorResponseSerializer.create_and_validate(
+                code=ErrorCode.BAD_REQUEST, message="There is no file in request"
+            )
+            return Response(serializer.data, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = UploadRequestSerializer.create_and_validate(data=request.data, files=request.FILES)
+
+        uploaded_file = serializer.validated_data.get("file")
+        file_name = f"{uuid.uuid4()}_{uploaded_file.name}"
+
+        # s3 = get_s3_client()
+        # s3.upload_fileobj(uploaded_file, settings.YC_STORAGE_BUCKET_NAME, file_name)
+        # TODO: загрузка в s3
+
+        file_instance = File(
+            id=uuid.uuid4(),
+            user=request.user if request.user.is_authenticated else None,
+            status=File.FileProcessing.QUEUED,
+            s3_link=f"https://storage.yandexcloud.net/{settings.YC_STORAGE_BUCKET_NAME}/{file_name}",
+        )
+        file_instance.save()
+        serializer = UploadResponseSerializer.create_and_validate(task_id=file_instance.id)
+        return Response(
+            serializer.validated_data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class StatusView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = []
 
-    @swagger_auto_schema(
-        tags=["API бэкенд"],
-        operation_description="Получение статуса задачи по task_id.",
-        responses={
-            200: openapi.Response(
-                description="Статус задачи",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "task_id": openapi.Schema(
-                            type=openapi.TYPE_STRING, example="123e4567-e89b-12d3-a456-426614174000"
-                        ),
-                        "filename": openapi.Schema(type=openapi.TYPE_STRING, example="photo.jpg"),
-                        "status": openapi.Schema(type=openapi.TYPE_STRING, example="pending"),
-                    },
-                ),
-            ),
-            404: openapi.Response(description="Задача не найдена"),
-        },
-    )
+    @extend_schema(responses={200: StatusResponseSerializer, 404: ErrorResponseSerializer}, tags=["Prod"])
     def get(self, _: Request, task_id: uuid.UUID) -> Response:
-        return Response({"response": task_id})
+        try:
+            file_instance = File.objects.get(id=task_id)
+        except File.DoesNotExist:
+            serializer = ErrorResponseSerializer.create_and_validate(code=ErrorCode.NOT_FOUND, message="Task not found")
+            return Response(serializer.validated_data, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = StatusResponseSerializer(file_instance)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class PresignedUrlView(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = []
 
-    @swagger_auto_schema(
-        tags=["API бэкенд"],
-        operation_description="Генерация Pre-Signed URL для загрузки файла в S3.",
-        responses={
-            200: openapi.Response(
-                description="Pre-Signed URL и task_id для загрузки файла",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "presigned_url": openapi.Schema(type=openapi.TYPE_STRING, example="https://s3/..."),
-                        "task_id": openapi.Schema(
-                            type=openapi.TYPE_STRING, example="123e4567-e89b-12d3-a456-426614174000"
-                        ),
-                    },
-                ),
-            ),
-            400: openapi.Response(description="Ошибка в запросе"),
-        },
-    )
-    def post(self, _: Request) -> Response:
-        return Response({"response": "hello"})
+    @extend_schema(responses={200: GetPresignedUrlResponseSerializer, 500: ErrorResponseSerializer}, tags=["Prod"])
+    def get(self, request: Request) -> Response:
+        task_id = uuid.uuid4()
+        payload = {"bucket_name": settings.YC_STORAGE_BUCKET_NAME, "task_id": str(task_id), "expires_in": 3600}
+        try:
+            response = requests.get(settings.YC_GENERATE_PRESIGNED_URL, json=payload, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            if "presigned_url" not in data:
+                serializer = ErrorResponseSerializer.create_and_validate(
+                    code=ErrorCode.INTERNAL_ERROR, message="YC unexpected response"
+                )
+                return Response(
+                    serializer.data,
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+            presigned_url = data.get("presigned_url")
+            expiration_datetime = data.get("expiration_time")
+            File.objects.create(
+                id=task_id,
+                user=request.user if request.user.is_authenticated else None,
+                status=File.FileProcessing.QUEUED,
+                s3_link=f"https://storage.yandexcloud.net/{settings.YC_STORAGE_BUCKET_NAME}/uploads/{task_id}",
+            )
+            serializer = GetPresignedUrlResponseSerializer.create_and_validate(
+                url=presigned_url, task_id=task_id, expires_date=expiration_datetime
+            )
+            return Response(
+                serializer.validated_data,
+                status=status.HTTP_200_OK,
+            )
+        except requests.exceptions.RequestException:
+            serializer = ErrorResponseSerializer.create_and_validate(
+                code=ErrorCode.INTERNAL_ERROR, message="YC request error"
+            )
+            return Response(
+                serializer.data,
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class GetImageView(APIView):
-    @swagger_auto_schema(
-        operation_description="Получить обработанное изображение по task_id",
-        manual_parameters=[
-            openapi.Parameter(
-                name="task_id",
-                in_=openapi.IN_PATH,
-                type=openapi.TYPE_STRING,
-                description="Уникальный идентификатор задачи (UUID)",
-                required=True,
-            )
-        ],
-        responses={
-            200: openapi.Response(
-                description="Успешный ответ",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_FILE,
-                    description="Обработанное изображение в формате файла",
-                ),
-            ),
-            404: openapi.Response(
-                description="Задача не найдена",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "detail": openapi.Schema(
-                            type=openapi.TYPE_STRING,
-                            description="Сообщение об ошибке",
-                        )
-                    },
-                ),
-            ),
-        },
-        tags=["API бэкенд"],
-    )
+    permission_classes = []
+
+    @extend_schema(responses={200: GetImageResponseSerializer, 404: ErrorResponseSerializer}, tags=["Prod"])
     def get(self, _: Request, task_id: uuid.UUID) -> Response:
-        return Response({"response": task_id})
+        try:
+            file_instance = File.objects.get(id=task_id)
+        except File.DoesNotExist:
+            serializer = ErrorResponseSerializer(code=ErrorCode.NOT_FOUND, message="YC unexpected response")
+            return Response(serializer.data, status=status.HTTP_404_NOT_FOUND)
+
+        file_link = file_instance.s3_link if file_instance.status == File.FileProcessing.READY else None
+        serializer = GetImageResponseSerializer.create_and_validate(status=file_instance.status, url=file_link)
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
