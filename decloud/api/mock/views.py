@@ -1,6 +1,16 @@
 import uuid
 from datetime import datetime, timedelta
 
+from api.models import File
+from api.serializers import (
+    GetImageResponseSerializer,
+    GetPresignedUrlResponseSerializer,
+    StatusResponseSerializer,
+    UploadRequestSerializer,
+    UploadResponseSerializer,
+)
+from core.serializers import ErrorResponseSerializer
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -8,55 +18,53 @@ from rest_framework.views import APIView
 
 
 class MockUploadView(APIView):
-    def post(self, _request: Request) -> Response:
-        task_id = uuid.uuid4()
+    @extend_schema(
+        request=UploadRequestSerializer,
+        responses={201: UploadResponseSerializer, 400: ErrorResponseSerializer},
+        tags=["Mock"],
+    )
+    def post(self, request: Request) -> Response:
+        serializer = UploadRequestSerializer.create_and_validate(data=request.data, files=request.FILES)
 
         return Response(
-            {"task_id": str(task_id), "status": "queued", "message": "File upload accepted"},
-            status=status.HTTP_202_ACCEPTED,
+            serializer.validated_data,
+            status=status.HTTP_201_CREATED,
         )
 
 
 class MockStatusView(APIView):
-    def get(self, _request: Request, task_id: str) -> Response:
-        current_second = datetime.now().second
-        status = "processing" if current_second % 2 == 0 else "ready"
+    @extend_schema(responses={200: StatusResponseSerializer, 404: ErrorResponseSerializer}, tags=["Mock"])
+    def get(self, _: Request, task_id: str) -> Response:
+        file_instance = File(
+            id=task_id,
+            user=None,
+            status=File.FileProcessing.PROCESSING,
+            s3_link=f"https://link.rur/image/{uuid.uuid4()}",
+        )
+        serializer = StatusResponseSerializer(file_instance)
 
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class MockPresignedUrlView(APIView):
+    @extend_schema(responses={200: GetPresignedUrlResponseSerializer, 500: ErrorResponseSerializer}, tags=["Mock"])
+    def get(self, _request: Request) -> Response:
+        task_id = uuid.uuid4()
+        serializer = GetPresignedUrlResponseSerializer.create_and_validate(
+            url=f"https://mock-storage.example.com/upload/{task_id}",
+            task_id=task_id,
+            expires_date=(datetime.now() + timedelta(hours=1)).isoformat(),
+        )
         return Response(
-            {
-                "task_id": task_id,
-                "status": status,
-                "progress": 100 if status == "ready" else current_second % 100,
-                "estimated_completion": (datetime.now() + timedelta(seconds=30)).isoformat(),
-            }
+            serializer.validated_data,
+            status=status.HTTP_200_OK,
         )
 
 
 class MockGetImageView(APIView):
+    @extend_schema(responses={200: GetImageResponseSerializer, 404: ErrorResponseSerializer}, tags=["Mock"])
     def get(self, _request: Request, task_id: str) -> Response:
-        return Response(
-            {
-                "task_id": task_id,
-                "status": "completed",
-                "download_url": f"https://mock-storage.example.com/images/{task_id}.jpg",
-                "expires_at": (datetime.now() + timedelta(days=1)).isoformat(),
-            }
+        serializer = GetImageResponseSerializer.create_and_validate(
+            status=File.FileProcessing.READY, url=f"https://hello.me/asfasf/{task_id}"
         )
-
-
-class MockPresignedUrlView(APIView):
-    def get(self, _request: Request) -> Response:
-        task_id = uuid.uuid4()
-        return Response(
-            {
-                "task_id": str(task_id),
-                "upload_url": f"https://mock-storage.example.com/upload/{task_id}",
-                "fields": {
-                    "key": f"uploads/{task_id}",
-                    "AWSAccessKeyId": "MOCK_ACCESS_KEY",
-                    "policy": "MOCK_POLICY_STRING",
-                    "signature": "MOCK_SIGNATURE",
-                },
-                "expires_at": (datetime.now() + timedelta(hours=1)).isoformat(),
-            }
-        )
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)

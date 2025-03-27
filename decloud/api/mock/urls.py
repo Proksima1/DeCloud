@@ -1,6 +1,5 @@
+from api.mock.views import MockGetImageView, MockPresignedUrlView, MockStatusView, MockUploadView
 from django.urls import path
-
-from .views import MockGetImageView, MockPresignedUrlView, MockStatusView, MockUploadView
 
 urlpatterns = [
     path("image/upload/", MockUploadView.as_view()),

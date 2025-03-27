@@ -1,6 +1,6 @@
 from django.urls import include, path
 
-from .views import GetImageView, PresignedUrlView, StatusView, UploadView
+from api.views import GetImageView, PresignedUrlView, StatusView, UploadView
 
 urlpatterns = [
     path("image/upload/", UploadView.as_view()),

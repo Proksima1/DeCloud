@@ -1,5 +1,4 @@
 import uuid
-from datetime import datetime, timedelta
 
 import requests
 from core.serializers import ErrorCode, ErrorResponseSerializer
@@ -28,6 +27,7 @@ class UploadView(APIView):
     @extend_schema(
         request=UploadRequestSerializer,
         responses={201: UploadResponseSerializer, 400: ErrorResponseSerializer},
+        tags=["Prod"],
     )
     def post(self, request: Request) -> Response:
         if "file" not in request.FILES:
@@ -62,9 +62,7 @@ class UploadView(APIView):
 class StatusView(APIView):
     permission_classes = []
 
-    @extend_schema(
-        responses={200: StatusResponseSerializer, 404: ErrorResponseSerializer},
-    )
+    @extend_schema(responses={200: StatusResponseSerializer, 404: ErrorResponseSerializer}, tags=["Prod"])
     def get(self, _: Request, task_id: uuid.UUID) -> Response:
         try:
             file_instance = File.objects.get(id=task_id)
@@ -80,9 +78,7 @@ class StatusView(APIView):
 class PresignedUrlView(APIView):
     permission_classes = []
 
-    @extend_schema(
-        responses={500: ErrorResponseSerializer},
-    )
+    @extend_schema(responses={200: GetPresignedUrlResponseSerializer, 500: ErrorResponseSerializer}, tags=["Prod"])
     def get(self, request: Request) -> Response:
         task_id = uuid.uuid4()
         payload = {"bucket_name": settings.YC_STORAGE_BUCKET_NAME, "task_id": str(task_id), "expires_in": 3600}
@@ -99,8 +95,8 @@ class PresignedUrlView(APIView):
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
-            presigned_url = data["presigned_url"]
-            expires_in = data.get("expires_in", 3600)
+            presigned_url = data.get("presigned_url")
+            expiration_datetime = data.get("expiration_time")
             File.objects.create(
                 id=task_id,
                 user=request.user if request.user.is_authenticated else None,
@@ -108,8 +104,8 @@ class PresignedUrlView(APIView):
                 s3_link=f"https://storage.yandexcloud.net/{settings.YC_STORAGE_BUCKET_NAME}/uploads/{task_id}",
             )
             serializer = GetPresignedUrlResponseSerializer.create_and_validate(
-                url=presigned_url, task_id=task_id, expires_date=datetime.now() + timedelta(seconds=expires_in), expires_in=expires_in
-            )  # TODO: переделать на возврат даты из запроса
+                url=presigned_url, task_id=task_id, expires_date=expiration_datetime
+            )
             return Response(
                 serializer.validated_data,
                 status=status.HTTP_200_OK,
@@ -127,9 +123,7 @@ class PresignedUrlView(APIView):
 class GetImageView(APIView):
     permission_classes = []
 
-    @extend_schema(
-        responses={200: GetImageResponseSerializer, 404: ErrorResponseSerializer},
-    )
+    @extend_schema(responses={200: GetImageResponseSerializer, 404: ErrorResponseSerializer}, tags=["Prod"])
     def get(self, _: Request, task_id: uuid.UUID) -> Response:
         try:
             file_instance = File.objects.get(id=task_id)

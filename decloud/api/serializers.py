@@ -27,4 +27,3 @@ class GetPresignedUrlResponseSerializer(BaseSerializer):
     url = serializers.URLField()
     task_id = serializers.UUIDField()
     expires_date = serializers.DateTimeField()
-    expires_in = serializers.IntegerField()
