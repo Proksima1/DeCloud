@@ -9,22 +9,30 @@ from api.serializers import (
     UploadRequestSerializer,
     UploadResponseSerializer,
 )
-from core.serializers import ErrorResponseSerializer
+from core.serializers import ErrorCode, ErrorResponseSerializer
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 
 class MockUploadView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+
     @extend_schema(
         request=UploadRequestSerializer,
         responses={201: UploadResponseSerializer, 400: ErrorResponseSerializer},
         tags=["Mock"],
     )
     def post(self, request: Request) -> Response:
-        serializer = UploadRequestSerializer.create_and_validate(data=request.data, files=request.FILES)
+        if "file" not in request.FILES:
+            serializer = ErrorResponseSerializer.create_and_validate(
+                code=ErrorCode.BAD_REQUEST, message="There is no file in request"
+            )
+            return Response(serializer.data, status=status.HTTP_400_BAD_REQUEST)
+        serializer = UploadResponseSerializer.create_and_validate(task_id=uuid.uuid4())
 
         return Response(
             serializer.validated_data,

@@ -11,7 +11,7 @@ class StatusResponseSerializer(serializers.ModelSerializer):
 
 
 class UploadRequestSerializer(BaseSerializer):
-    file = serializers.FileField(allow_empty_file=False)
+    file = serializers.ImageField(allow_empty_file=False)
 
 
 class UploadResponseSerializer(BaseSerializer):
