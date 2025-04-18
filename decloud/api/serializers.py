@@ -11,11 +11,13 @@ class StatusResponseSerializer(serializers.ModelSerializer):
 
 
 class UploadRequestSerializer(BaseSerializer):
-    file = serializers.ImageField(allow_empty_file=False)
+    optical_file = serializers.ImageField(allow_empty_file=False)
+    sar_file = serializers.ImageField(allow_empty_file=False)
 
 
 class UploadResponseSerializer(BaseSerializer):
     task_id = serializers.UUIDField()
+    task_id2 = serializers.UUIDField()
 
 
 class GetImageResponseSerializer(BaseSerializer):

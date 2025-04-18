@@ -3,7 +3,7 @@ import uuid
 import requests
 from core.serializers import ErrorCode, ErrorResponseSerializer
 from django.conf import settings
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiResponse
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.request import Request
@@ -24,35 +24,99 @@ class UploadView(APIView):
     permission_classes = []
     parser_classes = [MultiPartParser, FormParser]
 
+
     @extend_schema(
-        request=UploadRequestSerializer,
-        responses={201: UploadResponseSerializer, 400: ErrorResponseSerializer},
+        summary="Загрузить оптический и SAR-файлы",
+        description="""
+        Загружает два файла для последующей обработки:
+        - Оптический снимок (optical_file)
+        - SAR-данные (sar_file)
+
+        Возвращает идентификаторы задач для отслеживания статуса.
+        """,
         tags=["Prod"],
+        operation_id="upload_optical_and_sar_files",
+        
+        examples=[
+            OpenApiExample(
+                "Пример запроса",
+                description="Загрузите оба файла в формате multipart/form-data",
+                value={
+                    "optical_file": "<binary_file>",
+                    "sar_file": "<binary_file>",
+                },
+                request_only=True,
+                media_type="multipart/form-data",
+            ),
+        ],
+        
+        request=UploadRequestSerializer,
+        
+        responses={
+            status.HTTP_201_CREATED: OpenApiResponse(
+                response=UploadResponseSerializer,
+                description="Файлы успешно загружены. Возвращает ID задач.",
+                examples=[
+                    OpenApiExample(
+                        "Пример ответа",
+                        value={
+                            "task_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                            "task_id2": "3fa85f64-5717-4562-b3fc-2c963f66afa7",
+                        },
+                    ),
+                ],
+            ),
+            status.HTTP_400_BAD_REQUEST: OpenApiResponse(
+                response=ErrorResponseSerializer,
+                description="Ошибка: отсутствует optical_file или sar_file",
+                examples=[
+                    OpenApiExample(
+                        "Пример ошибки",
+                        value={
+                            "code": "bad_request",
+                            "message": "There is no optical_file or sar_file in request",
+                        },
+                    ),
+                ],
+            ),
+        },
     )
+
     def post(self, request: Request) -> Response:
-        if "file" not in request.FILES:
+        if "optical_file" not in request.FILES or "sar_file" not in request.FILES:
             serializer = ErrorResponseSerializer.create_and_validate(
-                code=ErrorCode.BAD_REQUEST, message="There is no file in request"
+                code=ErrorCode.BAD_REQUEST, message="There is no optical_file or sar_file in request"
             )
             return Response(serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = UploadRequestSerializer.create_and_validate(data=request.data, files=request.FILES)
 
-        uploaded_file = serializer.validated_data.get("file")
-        file_name = f"{uuid.uuid4()}_{uploaded_file.name}"
+        uploaded_optical_file = serializer.validated_data.get("optical_file")
+        uploaded_sar_file = serializer.validated_data.get("sar_file")
+
+        optical_file_name = f"{uuid.uuid4()}_{uploaded_optical_file.name}"
+        sar_file_name = f"{uuid.uuid4()}_{uploaded_sar_file.name}"
 
         # s3 = get_s3_client()
         # s3.upload_fileobj(uploaded_file, settings.YC_STORAGE_BUCKET_NAME, file_name)
         # TODO: загрузка в s3
 
-        file_instance = File(
+        optical_file_instance = File(
             id=uuid.uuid4(),
             user=request.user if request.user.is_authenticated else None,
             status=File.FileProcessing.QUEUED,
-            s3_link=f"https://storage.yandexcloud.net/{settings.YC_STORAGE_BUCKET_NAME}/{file_name}",
+            s3_link=f"https://storage.yandexcloud.net/{settings.YC_STORAGE_BUCKET_NAME}/{optical_file_name}",
         )
-        file_instance.save()
-        serializer = UploadResponseSerializer.create_and_validate(task_id=file_instance.id)
+        sar_file_instance = File(
+            id=uuid.uuid4(),
+            user=request.user if request.user.is_authenticated else None,
+            status=File.FileProcessing.QUEUED,
+            s3_link=f"https://storage.yandexcloud.net/{settings.YC_STORAGE_BUCKET_NAME}/{sar_file_name}",
+        )
+        optical_file_instance.save()
+        sar_file_instance.save()
+
+        serializer = UploadResponseSerializer.create_and_validate(task_id=sar_file_instance.id, task_id2=optical_file_instance.id)
         return Response(
             serializer.validated_data,
             status=status.HTTP_201_CREATED,
