@@ -10,7 +10,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from api.models import File, ImageToLoad
+from api.models import File
 from api.serializers import (
     GetImageResponseSerializer,
     GetPresignedUrlResponseSerializer,
