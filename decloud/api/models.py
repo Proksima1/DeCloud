@@ -19,7 +19,8 @@ class File(models.Model):
         blank=True
     )
     status = models.CharField(max_length=20, choices=FileProcessing.choices, default=FileProcessing.QUEUED)
-    s3_link = models.URLField(max_length=255, blank=True)
+    sar_s3_link = models.URLField(max_length=255, blank=True)
+    optical_s3_link = models.URLField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

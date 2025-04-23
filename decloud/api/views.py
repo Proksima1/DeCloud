@@ -10,7 +10,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from api.models import File
+from api.models import File, ImageToLoad
 from api.serializers import (
     GetImageResponseSerializer,
     GetPresignedUrlResponseSerializer,
@@ -24,15 +24,14 @@ class UploadView(APIView):
     permission_classes = []
     parser_classes = [MultiPartParser, FormParser]
 
-
     @extend_schema(
-        summary="Загрузить оптический и SAR-файлы",
+        summary="Загрузить спутниковый и радарный снимки",
         description="""
         Загружает два файла для последующей обработки:
-        - Оптический снимок (optical_file)
-        - SAR-данные (sar_file)
+        - Спутниковый снимок (optical_file)
+        - Радарные данные (sar_file)
 
-        Возвращает идентификаторы задач для отслеживания статуса.
+        Возвращает идентификатор задачи для отслеживания статуса.
         """,
         tags=["Prod"],
         operation_id="upload_optical_and_sar_files",
@@ -55,13 +54,12 @@ class UploadView(APIView):
         responses={
             status.HTTP_201_CREATED: OpenApiResponse(
                 response=UploadResponseSerializer,
-                description="Файлы успешно загружены. Возвращает ID задач.",
+                description="Файлы успешно загружены. Возвращает ID задачи.",
                 examples=[
                     OpenApiExample(
                         "Пример ответа",
                         value={
                             "task_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                            "task_id2": "3fa85f64-5717-4562-b3fc-2c963f66afa7",
                         },
                     ),
                 ],
@@ -94,29 +92,24 @@ class UploadView(APIView):
         uploaded_optical_file = serializer.validated_data.get("optical_file")
         uploaded_sar_file = serializer.validated_data.get("sar_file")
 
-        optical_file_name = f"{uuid.uuid4()}_{uploaded_optical_file.name}"
-        sar_file_name = f"{uuid.uuid4()}_{uploaded_sar_file.name}"
+        task_id = uuid.uuid4()
+        optical_file_name = f"{task_id}_optical"
+        sar_file_name = f"{task_id}_sar"
+
+        file_instance = File(
+            id=task_id,
+            user=request.user if request.user.is_authenticated else None,
+            status=File.FileProcessing.QUEUED,
+            optical_s3_link=f"https://storage.yandexcloud.net/{settings.YC_STORAGE_BUCKET_NAME}/{optical_file_name}",
+            sar_s3_link=f"https://storage.yandexcloud.net/{settings.YC_STORAGE_BUCKET_NAME}/{sar_file_name}",
+        )
+        file_instance.save()
 
         # s3 = get_s3_client()
         # s3.upload_fileobj(uploaded_file, settings.YC_STORAGE_BUCKET_NAME, file_name)
         # TODO: загрузка в s3
 
-        optical_file_instance = File(
-            id=uuid.uuid4(),
-            user=request.user if request.user.is_authenticated else None,
-            status=File.FileProcessing.QUEUED,
-            s3_link=f"https://storage.yandexcloud.net/{settings.YC_STORAGE_BUCKET_NAME}/{optical_file_name}",
-        )
-        sar_file_instance = File(
-            id=uuid.uuid4(),
-            user=request.user if request.user.is_authenticated else None,
-            status=File.FileProcessing.QUEUED,
-            s3_link=f"https://storage.yandexcloud.net/{settings.YC_STORAGE_BUCKET_NAME}/{sar_file_name}",
-        )
-        optical_file_instance.save()
-        sar_file_instance.save()
-
-        serializer = UploadResponseSerializer.create_and_validate(task_id=sar_file_instance.id, task_id2=optical_file_instance.id)
+        serializer = UploadResponseSerializer.create_and_validate(task_id=task_id)
         return Response(
             serializer.validated_data,
             status=status.HTTP_201_CREATED,

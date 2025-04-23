@@ -17,7 +17,6 @@ class UploadRequestSerializer(BaseSerializer):
 
 class UploadResponseSerializer(BaseSerializer):
     task_id = serializers.UUIDField()
-    task_id2 = serializers.UUIDField()
 
 
 class GetImageResponseSerializer(BaseSerializer):
