@@ -10,7 +10,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from api.models import File
+from api.models import ImageToLoad
 from api.serializers import (
     GetImageResponseSerializer,
     GetPresignedUrlResponseSerializer,
@@ -89,19 +89,12 @@ class UploadView(APIView):
 
         serializer = UploadRequestSerializer.create_and_validate(data=request.data, files=request.FILES)
 
-        uploaded_optical_file = serializer.validated_data.get("optical_file")
-        uploaded_sar_file = serializer.validated_data.get("sar_file")
-
         task_id = uuid.uuid4()
-        optical_file_name = f"{task_id}_optical"
-        sar_file_name = f"{task_id}_sar"
 
-        file_instance = File(
+        file_instance = ImageToLoad(
             id=task_id,
             user=request.user if request.user.is_authenticated else None,
-            status=File.FileProcessing.QUEUED,
-            optical_s3_link=f"https://storage.yandexcloud.net/{settings.YC_STORAGE_BUCKET_NAME}/{optical_file_name}",
-            sar_s3_link=f"https://storage.yandexcloud.net/{settings.YC_STORAGE_BUCKET_NAME}/{sar_file_name}",
+            status=ImageToLoad.FileProcessing.QUEUED,
         )
         file_instance.save()
 
@@ -122,8 +115,8 @@ class StatusView(APIView):
     @extend_schema(responses={200: StatusResponseSerializer, 404: ErrorResponseSerializer}, tags=["Prod"])
     def get(self, _: Request, task_id: uuid.UUID) -> Response:
         try:
-            file_instance = File.objects.get(id=task_id)
-        except File.DoesNotExist:
+            file_instance = ImageToLoad.objects.get(id=task_id)
+        except ImageToLoad.DoesNotExist:
             serializer = ErrorResponseSerializer.create_and_validate(code=ErrorCode.NOT_FOUND, message="Task not found")
             return Response(serializer.validated_data, status=status.HTTP_404_NOT_FOUND)
 
@@ -154,10 +147,10 @@ class PresignedUrlView(APIView):
 
             presigned_url = data.get("presigned_url")
             expiration_datetime = data.get("expiration_time")
-            File.objects.create(
+            ImageToLoad.objects.create(
                 id=task_id,
                 user=request.user if request.user.is_authenticated else None,
-                status=File.FileProcessing.QUEUED,
+                status=ImageToLoad.FileProcessing.QUEUED,
                 s3_link=f"https://storage.yandexcloud.net/{settings.YC_STORAGE_BUCKET_NAME}/uploads/{task_id}",
             )
             serializer = GetPresignedUrlResponseSerializer.create_and_validate(
@@ -183,11 +176,11 @@ class GetImageView(APIView):
     @extend_schema(responses={200: GetImageResponseSerializer, 404: ErrorResponseSerializer}, tags=["Prod"])
     def get(self, _: Request, task_id: uuid.UUID) -> Response:
         try:
-            file_instance = File.objects.get(id=task_id)
-        except File.DoesNotExist:
+            file_instance = ImageToLoad.objects.get(id=task_id)
+        except ImageToLoad.DoesNotExist:
             serializer = ErrorResponseSerializer(code=ErrorCode.NOT_FOUND, message="YC unexpected response")
             return Response(serializer.data, status=status.HTTP_404_NOT_FOUND)
 
-        file_link = file_instance.s3_link if file_instance.status == File.FileProcessing.READY else None
+        file_link = file_instance.s3_link if file_instance.status == ImageToLoad.FileProcessing.READY else None
         serializer = GetImageResponseSerializer.create_and_validate(status=file_instance.status, url=file_link)
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
