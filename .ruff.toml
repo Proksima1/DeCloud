@@ -30,6 +30,7 @@ exclude = [
     "site-packages",
     "build",
     "dist",
+    "**/migrations/**"
 ]
 
 target-version = "py310"
@@ -97,7 +98,7 @@ ignore = [
     "COM812", # missing-trailing-comma [flake8-commas]
     "ISC001", # single-line-implicit-string-concatenation [flake8-implicit-str-concat]
     "SIM117", # multiple-with-statements [flake8-simplify]
-    "TCH002", # typing-only-third-party-import [flake8-type-checking]
+    "TC002", # typing-only-third-party-import [flake8-type-checking]
     "PLC0415", # import-outside-top-level [Convention [pylint]]
     "PLR2004", # magic-value-comparison [Refactor [pylint]]
     "E402", # module-import-not-at-top-of-file [Errors [pycodestyle]]
@@ -107,9 +108,7 @@ ignore = [
     "N815", # mixed-case-variable-in-class-scope [pep8-naming]
     "N806", # non-lowercase-variable-in-function [pep8-naming]
     "BLE001", # do-no-catch-blind-exception
-    "ANN101",
     "ANN204",
-    "ANN102", # Missing type annotation for `cls` in classmethod
     "S104", # Possible binding to all interfaces
     "S311", # Standard pseudo-random generators are not suitable for cryptographic purposes
     "SIM110", # Use `...` instead of `for` loop
