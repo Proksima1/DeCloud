@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timedelta
 
-from api.models import File
+from api.models import ImageToLoad
 from api.serializers import (
     GetImageResponseSerializer,
     GetPresignedUrlResponseSerializer,
@@ -43,10 +43,10 @@ class MockUploadView(APIView):
 class MockStatusView(APIView):
     @extend_schema(responses={200: StatusResponseSerializer, 404: ErrorResponseSerializer}, tags=["Mock"])
     def get(self, _: Request, task_id: str) -> Response:
-        file_instance = File(
+        file_instance = ImageToLoad(
             id=task_id,
             user=None,
-            status=File.FileProcessing.PROCESSING,
+            status=ImageToLoad.FileProcessing.PROCESSING,
             s3_link=f"https://link.rur/image/{uuid.uuid4()}",
         )
         serializer = StatusResponseSerializer(file_instance)
@@ -73,6 +73,6 @@ class MockGetImageView(APIView):
     @extend_schema(responses={200: GetImageResponseSerializer, 404: ErrorResponseSerializer}, tags=["Mock"])
     def get(self, _request: Request, task_id: str) -> Response:
         serializer = GetImageResponseSerializer.create_and_validate(
-            status=File.FileProcessing.READY, url=f"https://hello.me/asfasf/{task_id}"
+            status=ImageToLoad.FileProcessing.READY, url=f"https://hello.me/asfasf/{task_id}"
         )
         return Response(serializer.validated_data, status=status.HTTP_200_OK)

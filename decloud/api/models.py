@@ -4,7 +4,7 @@ from django.conf import settings
 from django.db import models
 
 
-class File(models.Model):
+class ImageToLoad(models.Model):
     class FileProcessing(models.TextChoices):
         QUEUED = "queued", "Queued"
         PROCESSING = "processing", "Processing"
@@ -19,7 +19,6 @@ class File(models.Model):
         blank=True
     )
     status = models.CharField(max_length=20, choices=FileProcessing.choices, default=FileProcessing.QUEUED)
-    s3_link = models.URLField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
