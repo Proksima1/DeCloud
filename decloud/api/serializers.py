@@ -1,17 +1,18 @@
 from core.serializers import BaseSerializer
 from rest_framework import serializers
 
-from api.models import File
+from api.models import ImageToLoad
 
 
 class StatusResponseSerializer(serializers.ModelSerializer):
     class Meta:
-        model = File
+        model = ImageToLoad
         fields = ["id", "status"]
 
 
 class UploadRequestSerializer(BaseSerializer):
-    file = serializers.ImageField(allow_empty_file=False)
+    optical_file = serializers.ImageField(allow_empty_file=False)
+    sar_file = serializers.ImageField(allow_empty_file=False)
 
 
 class UploadResponseSerializer(BaseSerializer):
@@ -20,7 +21,7 @@ class UploadResponseSerializer(BaseSerializer):
 
 class GetImageResponseSerializer(BaseSerializer):
     url = serializers.URLField()
-    status = serializers.ChoiceField(choices=[(status.value, status.name) for status in File.FileProcessing])
+    status = serializers.ChoiceField(choices=[(status.value, status.name) for status in ImageToLoad.FileProcessing])
 
 
 class GetPresignedUrlResponseSerializer(BaseSerializer):
