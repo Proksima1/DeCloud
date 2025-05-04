@@ -1,7 +1,7 @@
 import asyncio
 import logging
-from typing import NoReturn
 from collections.abc import Awaitable
+from typing import NoReturn
 
 logger = logging.getLogger(__name__)
 
