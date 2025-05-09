@@ -1,7 +1,7 @@
 import asyncio
 
+from base.presentation import runner
 from neuro_api_context.containers.neuro_api_container import NeuroApiContainer
-from neuro_api_context.presentation import runner
 from neuro_api_context.presentation.rabbit.app import create_app
 
 

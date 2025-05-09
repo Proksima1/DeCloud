@@ -29,6 +29,7 @@ class LoggerSettings(PureBaseModel):
         "psycopg2": {"handlers": ["console"], "level": "DEBUG"},
         "boto3": {"handlers": ["console"], "level": "INFO"},
         "botocore": {"handlers": ["console"], "level": "INFO"},
+        "faststream": {"handlers": ["console"], "level": "INFO"},
         "aiobotocore": {"handlers": ["console"], "level": "INFO"},
         "asyncio": {"handlers": ["console"], "level": "CRITICAL"},
         "uvicorn": {"handlers": ["console"], "level": "WARNING"},

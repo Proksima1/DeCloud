@@ -18,7 +18,7 @@ class WithId:
         UUID(as_uuid=True),
         default=uuid.uuid4(),
         primary_key=True,
-        comment="Идентификатор записи, генерируется через ULID",
+        comment="Идентификатор записи",
     )
 
 

@@ -52,5 +52,5 @@ class ApiRepository:
         async with self._engine_ro() as session:
             res = (await session.execute(stmt)).first()
         if res is None:
-            return Task(task_id=None, status=ImageProcessing.UNKNOWN)
+            return Task(task_id=None, status=ImageProcessing.UNKNOWN, s3_url=None)
         return Task.from_orm(res[0])

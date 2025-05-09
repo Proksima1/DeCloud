@@ -18,9 +18,9 @@ class Uvicorn(PureBaseModel):
 
 class Rabbit(PureBaseModel):
     host: str = "0.0.0.0"
-    port: int = 8082
+    port: int = 5672
     user: str = "guest"
-    password: str = "guest"
+    password: str = "guest"  # noqa: S105
 
 
 class FastAPI(PureBaseModel):
@@ -32,8 +32,8 @@ class S3Config(PureBaseModel):
     endpoint_url: str = "https://storage.yandexcloud.net"
     generate_presigned_url_endpoint: str = "https://functions.yandexcloud.net/d4eca2ru45nceehl1hva"
     region_name: str = "ru-central1"
-    aws_access_key_id: str = "key_id"
-    aws_secret_access_key: str = "access_key"
+    aws_access_key_id: str = "key"
+    aws_secret_access_key: str = "key"  # noqa: S105
     bucket_name: str = "testka"
 
 
@@ -48,7 +48,7 @@ class Postgres(PureBaseModel):
     port: int = 5432
 
     username: str | None = "postgres"
-    password: str | None = "postgres"
+    password: str | None = "postgres"  # noqa: S105
     database: str = "decloud"
 
     echo: bool = False

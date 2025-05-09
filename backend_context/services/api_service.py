@@ -1,14 +1,17 @@
+import logging
 import uuid
 from dataclasses import dataclass
 from urllib.parse import urljoin
 
 from fastapi import UploadFile
+from faststream.rabbit import RabbitBroker
 
 from backend_context.persistent.pg.api import ImageProcessing
 from backend_context.repositories.api_repository import ApiRepository
 from backend_context.repositories.s3_repository import S3Repository
 from backend_context.schemas.api_schemas import PresignedUrl, Task
 from backend_context.suppliers.s3_supplier import S3Supplier
+from base.presentation.rabbit.rabbit_queues import process_image_queue
 from base.settings import settings
 
 
@@ -17,6 +20,7 @@ class ApiService:
     _s3_supplier: S3Supplier
     _api_repository: ApiRepository
     _s3_repository: S3Repository
+    _publisher: RabbitBroker
 
     async def get_presigned_url(self) -> PresignedUrl:
         task_id = uuid.uuid4()
@@ -37,9 +41,14 @@ class ApiService:
         await self._s3_repository.upload_images(
             task_id=task_id, optical_content=optical_content, sar_content=sar_content
         )
-        # await optical_file.close()
-        # await sar_file.close()
+        await self._send_task_in_queue(task_id=task_id)
+        await optical_file.close()
+        await sar_file.close()
         return Task(task_id=task_id, status=ImageProcessing.QUEUED, s3_url=None)
+
+    async def _send_task_in_queue(self, task_id: uuid.UUID) -> None:
+        await self._publisher.publish(str(task_id), queue=process_image_queue)
+        logging.info("task.queued", extra={"task_id": task_id})
 
     async def _make_url_to_image(self, task_id: uuid.UUID) -> str:
         base_url = urljoin(settings.s3_config.endpoint_url, settings.s3_config.bucket_name)
