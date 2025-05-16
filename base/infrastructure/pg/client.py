@@ -43,8 +43,6 @@ def _get_engine_args(pg: Postgres, extra_connect_args: dict[str, Any] | None) ->
         pool_settings["pool_pre_ping"] = pg.pool_pre_ping
         pool_settings["pool_recycle"] = pg.pool_recycle.seconds
     else:
-        # ! USE ONLY FOR PY-TESTS tests
-        # https://github.com/MagicStack/asyncpg/issues/863
         pool_settings["poolclass"] = NullPool  # type: ignore
 
     kwargs = {"connect_args": connect_args, "echo": pg.echo, **pool_settings}
