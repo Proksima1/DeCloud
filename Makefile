@@ -16,8 +16,8 @@ migration-apply:
 migration-delete:
 	$(PYTHON) -m alembic -c alembic/alembic.ini downgrade -1
 
-run-close-people-group-manager:
+run-api:
 	$(PYTHON) backend_context/entrypoints/api.py
 
-run-backend:
-    python3 -m uvicorn decloud.asgi:application
+# run-backend:
+#     python3 -m uvicorn decloud.asgi:application
