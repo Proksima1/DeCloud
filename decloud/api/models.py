@@ -1,35 +1,41 @@
 import uuid
+from datetime import datetime
+from enum import Enum
 
-from django.conf import settings
-from django.db import models
+from sqlalchemy import Column, DateTime, ForeignKey, String
+from sqlalchemy import Enum as SQLAlchemyEnum
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
 
 
-class ImageToLoad(models.Model):
-    class FileProcessing(models.TextChoices):
-        QUEUED = "queued", "Queued"
-        PROCESSING = "processing", "Processing"
-        READY = "ready", "Ready"
+class FileProcessing(str, Enum):
+    QUEUED = "queued"
+    PROCESSING = "processing"
+    READY = "ready"
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
-        related_name="files", 
-        null=True, 
-        blank=True
-    )
-    status = models.CharField(max_length=20, choices=FileProcessing.choices, default=FileProcessing.QUEUED)
-    created_at = models.DateTimeField(auto_now_add=True)
+
+class ImageToLoad(Base):
+    __tablename__ = "image_to_load"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    status = Column(SQLAlchemyEnum(FileProcessing), default=FileProcessing.QUEUED)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    s3_link = Column(String, nullable=True)
 
     def __str__(self):
         return f"File {self.id} ({self.status})"
 
 
-class PresignedLink(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="presigned_links")
-    link = models.URLField(max_length=255)
-    expires_at = models.DateTimeField()
+class PresignedLink(Base):
+    __tablename__ = "presigned_link"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    link = Column(String, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
 
     def __str__(self):
-        return f"Presigned link for {self.user.username} (expires: {self.expires_at})"
+        return f"Presigned link for user {self.user_id} (expires: {self.expires_at})"
