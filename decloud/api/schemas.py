@@ -1,4 +1,3 @@
-from datetime import datetime
 from enum import Enum
 from uuid import UUID
 
@@ -20,10 +19,17 @@ class FileProcessing(str, Enum):
     QUEUED = "queued"
     PROCESSING = "processing"
     READY = "ready"
+    PENDING = "pending"
 
 
 class StatusResponse(BaseModel):
+    """@deprecated Use GetStatusResponse instead"""
+
     id: UUID
+    status: FileProcessing
+
+
+class GetStatusResponse(BaseModel):
     status: FileProcessing
 
 
@@ -43,5 +49,4 @@ class GetImageResponse(BaseModel):
 
 class GetPresignedUrlResponse(BaseModel):
     url: str
-    task_id: UUID
-    expires_date: datetime
+    fields: dict[str, str]
