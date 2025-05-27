@@ -48,7 +48,9 @@ class NeuroApiService:
             result_image_bytes = self._image_processor.postprocess(output_tensor)
 
             logger.info("image.processed", extra={"task_id": task_id})
-            return result_image_bytes
+
         except Exception as e:
             logger.exception("Ошибка обработки изображений", extra={"task_id": task_id, "error": str(e)})
             raise
+        else:
+            return result_image_bytes
