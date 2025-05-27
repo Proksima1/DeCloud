@@ -4,9 +4,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: "postgres"
-      POSTGRES_PASSWORD: "postgres"
-      POSTGRES_DB: "decloud"
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: decloud
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
 
@@ -19,3 +19,12 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+
+  fastapi:
+      build: .
+      command: make run-api
+      ports:
+        - "8000:8000"
+      environment:
+        DATABASE_URL: postgres://postgres:postgres@postgres:5432/decloud
+        RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
