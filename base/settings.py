@@ -41,6 +41,10 @@ class HTTPClient(PureBaseModel):
     timeout: timedelta = timedelta(seconds=5)
 
 
+class MLModel(PureBaseModel):
+    ml_model_path: str = "resources/gen_Ver0.pth"
+
+
 class Postgres(PureBaseModel):
     protocol: str = "postgresql+asyncpg"
 
@@ -83,6 +87,7 @@ class Settings(BaseSettings):
     pg_ro: Postgres = Postgres()
     logger: LoggerSettings = LoggerSettings()
     http_client: HTTPClient = HTTPClient()
+    ml_model: MLModel = MLModel()
 
     model_config = SettingsConfigDict(
         env_file=env_file_path, env_prefix="cloud_", env_nested_delimiter="__", case_sensitive=False, extra="ignore"

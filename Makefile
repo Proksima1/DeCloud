@@ -1,4 +1,4 @@
-PYTHON ?= .venv/bin/python
+PYTHON ?= PYTHONPATH=. python3
 
 setup:
 	python3.10 -m venv .venv
@@ -18,6 +18,9 @@ migration-delete:
 
 run-api:
 	$(PYTHON) backend_context/entrypoints/api.py
+
+run-ml-service:
+	$(PYTHON) neuro_api_context/entrypoints/neuro_api.py
 
 # run-backend:
 #     python3 -m uvicorn decloud.asgi:application
