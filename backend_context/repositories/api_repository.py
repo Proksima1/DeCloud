@@ -53,4 +53,5 @@ class ApiRepository:
             res = (await session.execute(stmt)).first()
         if res is None:
             return Task(task_id=None, status=ImageProcessing.UNKNOWN, s3_url=None)
-        return Task.from_orm(res[0])
+        data = res[0]
+        return Task(task_id=data.task_id, status=data.status, s3_url=None)

@@ -52,4 +52,4 @@ class ApiService:
 
     async def _make_url_to_image(self, task_id: uuid.UUID) -> str:
         base_url = urljoin(settings.s3_config.endpoint_url, settings.s3_config.bucket_name)
-        return urljoin(base_url, str(task_id))
+        return urljoin(base_url, str(task_id)) + "result.tif"
